@@ -2,7 +2,7 @@
 
 A tiny, offline-first **Mermaid renderer** with a crisp dark theme, “UE‑style” comment boxes, readable edge labels, a floating Monaco editor, and quality-of-life controls (zoom, pan, fit, export, share). Built for quickly sketching architecture, flows, and docs while keeping everything local.
 
-[[RenderWOW screenshot](https://i.imgur.com/p21hSrN.png)
+[RenderWOW screenshot](https://i.imgur.com/p21hSrN.png)
 
 ---
 
