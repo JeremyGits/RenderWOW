@@ -160,48 +160,63 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  %% GLOBAL EDGE LOOK
-  linkStyle default stroke:rgb(155,224,255),stroke-width:2.2px,color:rgb(200,240,255);
 
+  %% Optional layout polish (safe values)
+  %%{init: {'flowchart': {'curve': 'basis', 'rankSpacing': 40, 'nodeSpacing': 30}}}%%
+
+  %% ─────────────────────────────────────────────────────────────────────────
+  %% Node classes (tiny nodes get a hint of category color)
+  classDef client fill:#0e1a36,stroke:#7dd3fc,color:#e6f3ff,stroke-width:1.4px,rx:8,ry:8;
+  classDef api    fill:#0e1a36,stroke:#f59e0b,color:#fff7e6,stroke-width:1.4px,rx:8,ry:8;
+  classDef svc    fill:#0e1a36,stroke:#a855f7,color:#f5e9ff,stroke-width:1.4px,rx:8,ry:8;
+  classDef db     fill:#0e1a36,stroke:#22c55e,color:#eafff3,stroke-width:1.4px,rx:8,ry:8;
+  classDef ext    fill:#0e1a36,stroke:#38bdf8,color:#eaf7ff,stroke-width:1.4px,rx:8,ry:8;
+
+  %% ─────────────────────────────────────────────────────────────────────────
   %% CLIENTS
-  A["Clerks & Admins<br/>(Browser :5173)"] -->|"HTTPS / fetch"| B["React SPA<br/>Vite + React Router + Axios"]
+  A["Clerks & Admins<br/>(Browser :5173)"]:::client
+  B["React SPA<br/>Vite + React Router + Axios"]:::client
+  A -->|"HTTPS / fetch"| B
 
   %% FRONTEND -> BACKEND
-  B -->|"/api/* with JWT<br/>+ refresh cookie"| C["Express API<br/>(server.js)"]
+  C["Express API<br/>(server.js)"]:::api
+  B -->|"/api/* with JWT<br/>+ refresh cookie"| C
 
   %% MIDDLEWARE
   subgraph M["Middleware"]
-    M1["Helmet CSP"] --> M2["CORS allowlist"] --> M3["Compression"] --> M4["Request ID"] --> M5["Rate limiter"] --> M6["Cookie parser"] --> M7["Auth/JWT guard"]
+    M1["Helmet CSP"]:::svc --> M2["CORS allowlist"]:::svc --> M3["Compression"]:::svc --> M4["Request ID"]:::svc --> M5["Rate limiter"]:::svc --> M6["Cookie parser"]:::svc --> M7["Auth/JWT guard"]:::svc
   end
-  style M fill:rgba(233,196,106,.12),stroke:#e9c46a,stroke-width:1.8px,rx:18,ry:18;
+  %% tint cluster safely (hex + fill-opacity)
+  style M fill:#e9c46a,fill-opacity:0.12,stroke:#e9c46a,stroke-width:1.8px,rx:18,ry:18;
   C --> M
 
   %% ROUTERS
   subgraph R["Routers (/api/*)"]
-    R1["/auth/"]
-    R2["/products + /categories + /modifiers/"]
-    R3["/orders/"]
-    R4["/payments/"]
-    R5["/devices + /profiles + /staff + /time + /payroll/"]
-    R6["/inventory/"]
-    R7["/reports/"]
-    R8["/doge/*"]
-    R9["/webhooks/*"]
-    R10["/rates/*"]
+    R1["/auth/"]:::api
+    R2["/products + /categories + /modifiers/"]:::api
+    R3["/orders/"]:::api
+    R4["/payments/"]:::api
+    R5["/devices + /profiles + /staff + /time + /payroll/"]:::api
+    R6["/inventory/"]:::api
+    R7["/reports/"]:::api
+    R8["/doge/*"]:::api
+    R9["/webhooks/*"]:::api
+    R10["/rates/*"]:::api
   end
-  style R fill:rgba(56,189,248,.12),stroke:#38bdf8,stroke-width:1.8px,rx:18,ry:18;
+  style R fill:#38bdf8,fill-opacity:0.12,stroke:#38bdf8,stroke-width:1.8px,rx:18,ry:18;
   C --> R
 
   %% SERVICES
   subgraph S["Services"]
-    S1["Payments Engine"]
-    S2["Stripe/Coinbase<br/>Webhooks"]
-    S3["DOGE Price Watcher<br/>(Coingecko)"]
-    S4["DOGE Tx Watcher<br/>(walletnotify + RPC)"]
-    S5["Inventory Logic"]
-    S6["Ledger/Reporting<br/>Aggregations"]
+    S1["Payments Engine"]:::svc
+    S2["Stripe/Coinbase<br/>Webhooks"]:::svc
+    S3["DOGE Price Watcher<br/>(Coingecko)"]:::svc
+    S4["DOGE Tx Watcher<br/>(walletnotify + RPC)"]:::svc
+    S5["Inventory Logic"]:::svc
+    S6["Ledger/Reporting<br/>Aggregations"]:::svc
   end
-  style S fill:rgba(168,85,247,.12),stroke:#a855f7,stroke-width:1.8px,rx:18,ry:18;
+  style S fill:#a855f7,fill-opacity:0.12,stroke:#a855f7,stroke-width:1.8px,rx:18,ry:18;
+
   R4 --> S1
   R8 --> S4
   R10 --> S3
@@ -211,11 +226,12 @@ flowchart TD
 
   %% PROVIDERS
   subgraph P["External Providers"]
-    P1["Stripe API"]
-    P2["Coinbase Commerce"]
-    P3["Dogecoin Core RPC<br/>127.0.0.1:18332"]
+    P1["Stripe API"]:::ext
+    P2["Coinbase Commerce"]:::ext
+    P3["Dogecoin Core RPC<br/>127.0.0.1:18332"]:::ext
   end
-  style P fill:rgba(16,185,129,.12),stroke:#34d399,stroke-width:1.8px,rx:18,ry:18;
+  style P fill:#34d399,fill-opacity:0.12,stroke:#34d399,stroke-width:1.8px,rx:18,ry:18;
+
   S1 <--> P1
   S1 <--> P2
   S4 <--> P3
@@ -223,15 +239,15 @@ flowchart TD
 
   %% DATA
   subgraph D["MongoDB"]
-    D1["Users"]
-    D2["Orders"]
-    D3["Payments"]
-    D4["Ledger"]
-    D5["Inventory: Items,<br/>Levels, Moves, Vendors,<br/>Receipts, PO, StockLedger"]
-    D6["Devices/Profiles/Staff"]
-    D7["DOGE Price Snapshot"]
+    D1["Users"]:::db
+    D2["Orders"]:::db
+    D3["Payments"]:::db
+    D4["Ledger"]:::db
+    D5["Inventory: Items,<br/>Levels, Moves, Vendors,<br/>Receipts, PO, StockLedger"]:::db
+    D6["Devices/Profiles/Staff"]:::db
+    D7["DOGE Price Snapshot"]:::db
   end
-  style D fill:rgba(99,102,241,.12),stroke:#6366f1,stroke-width:1.8px,rx:18,ry:18;
+  style D fill:#6366f1,fill-opacity:0.12,stroke:#6366f1,stroke-width:1.8px,rx:18,ry:18;
 
   R1 --> D1
   R3 --> D2
@@ -247,6 +263,7 @@ flowchart TD
   B -.->|"GET /api/reports/dashboard"| R7
   R7 -->|"aggregate"| D3
   R7 -->|"joins"| D4
+
 ```
 
 ### 7) Other diagram types (built‑ins)
