@@ -1,0 +1,101 @@
+﻿<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RenderWOW — Mermaid Renderer</title>
+
+  <!-- CSP for Electron + local Monaco in dev -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self' data: blob:;
+    script-src  'self' 'unsafe-inline' 'unsafe-eval' blob:;
+    style-src   'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src    'self' https://fonts.gstatic.com data:;
+    img-src     'self' data: blob:;
+    worker-src  'self' blob:;
+    connect-src 'self' blob: data:;
+    object-src  'none';
+  ">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./assets/styles.css" />
+
+  <!-- Local vendors (offline) -->
+  <script defer src="./vendor/mermaid/mermaid.min.js"></script>
+  <script defer src="./vendor/lz-string/lz-string.min.js"></script>
+
+  <!-- Monaco AMD loader (LOCAL). DO NOT import editor.main.js directly. -->
+  <script>
+    window.require = { paths: { vs: "./vendor/monaco/vs" } };
+    (function () {
+      const base = new URL("./vendor/monaco/", window.location.href).toString();
+      window.MonacoEnvironment = {
+        getWorkerUrl() {
+          const code = `
+            self.MonacoEnvironment = { baseUrl: '${base}' };
+            importScripts('${base}vs/base/worker/workerMain.js');
+          `;
+          return URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+        }
+      };
+    })();
+  </script>
+  <script defer src="./vendor/monaco/vs/loader.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">RenderWOW</div>
+    <div class="controls">
+      <select id="templatePicker" title="Templates">
+        <option value="none">Templates...</option>
+        <option value="flow">Flowchart</option>
+        <option value="sequence">Sequence</option>
+        <option value="class">Class</option>
+        <option value="er">ER</option>
+        <option value="gantt">Gantt</option>
+        <option value="state">State</option>
+        <option value="journey">Journey</option>
+      </select>
+      <button id="btnFormat">Format</button>
+      <button id="btnRender">Render</button>
+      <button id="btnFit">Fit</button>
+      <button id="btnZoomIn">+</button>
+      <button id="btnZoomOut">-</button>
+      <button id="btnResetPanZoom">Reset</button>
+      <button id="btnExportSvg">Export SVG</button>
+      <button id="btnExportPng">Export PNG</button>
+      <button id="btnShare">Copy Share URL</button>
+      <label class="toggle">
+        <input type="checkbox" id="themeToggle" checked />
+        <span>Dark</span>
+      </label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="pane left">
+      <div class="pane-title">Mermaid</div>
+      <div id="editor"></div>
+      <div class="help">Drop a .mmd file here • Ctrl/Cmd+S to render</div>
+    </section>
+
+    <section class="pane right">
+      <div id="previewWrap">
+        <div id="preview" aria-live="polite">
+          <!-- we inject .stageLayer here -->
+        </div>
+      </div>
+      <div id="error" class="error" hidden></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Built with Mermaid and Monaco •
+    <a href="#" id="docsLink">Docs</a>
+  </footer>
+
+  <!-- App -->
+  <script type="module" src="./assets/main.js"></script>
+</body>
+</html>

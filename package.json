@@ -1,0 +1,45 @@
+{
+  "name": "renderwow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Beautiful, offline Mermaid renderer with Monaco and a custom pipeline",
+  "main": "electron/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "node scripts/copy-monaco.js",
+    "dev": "electron .",
+    "make": "electron-builder --win --x64",
+    "clean": "rimraf dist vendor/vs"
+  },
+  "build": {
+    "appId": "com.renderwow.app",
+    "productName": "RenderWOW",
+    "files": [
+      "!node_modules/**/test{,/**}",
+      "!node_modules/**/examples{,/**}",
+      "electron/**",
+      "public/**",
+      "vendor/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  },
+  "dependencies": {
+    "lz-string": "^1.5.0",
+    "mermaid": "^10.9.1"
+  },
+  "devDependencies": {
+    "electron": "30.0.9",
+    "electron-builder": "24.13.3",
+    "electron-squirrel-startup": "^1.0.1",
+    "monaco-editor": "^0.52.0",
+    "rimraf": "5.0.10"
+  }
+}

@@ -1,0 +1,119 @@
+/* WOW theme for Mermaid – Eraser-ish vibe */
+
+:root {
+  --wow-bg: #0f1216;
+  --wow-panel: #131820;
+  --wow-card: #161c26;
+  --wow-card-2: #192231;
+  --wow-stroke: #2a3444;
+  --wow-text: #e6eefc;
+  --wow-text-dim: #9db0c9;
+  --wow-accent: #7aa2ff;
+  --wow-accent-2: #58d3ff;
+  --wow-green: #6ee7b7;
+  --wow-yellow: #fde68a;
+  --wow-red: #fca5a5;
+  --wow-shadow: rgba(7, 10, 14, 0.55);
+}
+
+/* Page BG (optional) */
+html[data-theme="dark"], body {
+  background: var(--wow-bg);
+}
+
+/* Mermaid container tweaks */
+#preview svg {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+}
+
+/* Node styles */
+#preview .node rect,
+#preview .cluster rect,
+#preview .actor {
+  fill: var(--wow-card);
+  stroke: var(--wow-stroke);
+  stroke-width: 1.2px;
+  rx: 12px;
+  ry: 12px;
+  filter: url(#wowDrop);
+}
+
+/* Alt fills for variety (classes, clusters) */
+#preview .cluster rect {
+  fill: var(--wow-card-2);
+}
+
+#preview .node .label,
+#preview .actor .label,
+#preview .cluster .label,
+#preview .label {
+  fill: var(--wow-text);
+}
+
+/* Edge + arrow styling */
+#preview .edgePath path.path {
+  stroke: #9ab0cf;
+  stroke-width: 1.4px;
+  opacity: 0.95;
+}
+
+#preview .marker {
+  fill: #9ab0cf;
+}
+
+/* Edge labels */
+#preview .edgeLabel rect {
+  fill: rgba(22, 28, 38, 0.9);
+  stroke: #334155;
+  rx: 6px; ry: 6px;
+}
+
+#preview .edgeLabel span,
+#preview .edgeLabel .label {
+  fill: var(--wow-text-dim);
+}
+
+/* Sequence lifelines + boxes */
+#preview .sequence .actor rect,
+#preview .sequence .messageLine0,
+#preview .sequence .messageLine1 {
+  filter: url(#wowDrop);
+}
+
+#preview .sequence .labelBox {
+  fill: var(--wow-card-2);
+  stroke: var(--wow-stroke);
+  rx: 8px; ry: 8px;
+}
+
+/* Notes */
+#preview .note {
+  fill: #1f2937;
+  stroke: #3b4454;
+  rx: 8px; ry: 8px;
+  filter: url(#wowDrop);
+}
+#preview .note .label { fill: var(--wow-text-dim); }
+
+/* Swimlanes / groups */
+#preview .section0, #preview .section2, #preview .section4 {
+  fill: rgba(80, 160, 255, 0.03);
+}
+#preview .section1, #preview .section3, #preview .section5 {
+  fill: rgba(90, 200, 255, 0.03);
+}
+
+/* Gantt/ERD/Class headings (if you use them) */
+#preview .title {
+  fill: var(--wow-text);
+  font-weight: 600;
+}
+
+/* Subtle interactive hover */
+#preview .node:hover rect {
+  stroke: var(--wow-accent);
+  box-shadow: 0 0 0 1px var(--wow-accent) inset;
+}
+
+/* Make text a tiny bit crisper */
+#preview text { paint-order: stroke; stroke: rgba(0,0,0,0.08); stroke-width: 0.6px; }

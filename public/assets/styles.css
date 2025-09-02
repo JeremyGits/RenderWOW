@@ -1,0 +1,223 @@
+﻿/* ============================================================================
+   RenderWOW — Layout + Theme + Mermaid polish (UE-style comment boxes)
+   ========================================================================== */
+
+:root{
+  /* App chrome */
+  --bg: #0b1220; --bg2: #0f1730;
+  --panel: #111a33; --panel-2: #0c152d; --panel-border: #1f2b4a;
+  --shadow: rgba(7, 10, 14, 0.55);
+
+  /* Text & accents */
+  --text: #dfe7ff; --muted: #94a3b8; --accent: #93c5fd;
+
+  /* Diagram strokes */
+  --stroke: #22395f; --stroke-2: #1e335f; --grid-line: #243250;
+
+  /* Edge label chip */
+  --edge-chip-bg: rgba(12,22,44,.88);
+  --edge-chip-stroke: rgba(148,163,184,.55);
+  --edge-chip-text: #eaf2ff;
+
+  /* Mermaid font */
+  --mermaid-font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+/* Base --------------------------------------------------------------------- */
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+
+/* ============================================================================
+   Top bar & footer
+   ========================================================================== */
+.topbar{
+  height:48px; display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; border-bottom:1px solid var(--panel-border);
+  background:linear-gradient(180deg,var(--bg2),var(--bg));
+}
+.brand{font-weight:700; letter-spacing:.5px}
+
+.controls{display:flex; gap:8px; align-items:center}
+.controls button,.controls select{
+  background:#0e1a36; border:1px solid #1e2a4c; color:var(--text);
+  padding:6px 10px; border-radius:8px; line-height:1; font-size:13px;
+  transition:border-color .15s ease, transform .05s ease;
+}
+.controls button:hover,.controls select:hover{border-color:#305090}
+.controls button:active{transform:translateY(1px)}
+.controls button:focus-visible,.controls select:focus-visible{outline:2px solid #3b82f6; outline-offset:2px}
+.toggle{display:flex; gap:6px; align-items:center}
+
+.footer{
+  height:28px; display:flex; align-items:center; justify-content:center;
+  border-top:1px solid var(--panel-border);
+  background:var(--panel-2); color:var(--muted); font-size:12px;
+}
+
+/* ============================================================================
+   Endless canvas layout (floating editor)
+   ========================================================================== */
+.layout{
+  position:fixed; left:0; right:0; top:48px; bottom:28px; isolation:isolate;
+}
+.pane.right{ position:absolute; inset:0; background:transparent; border:none; }
+
+#previewWrap{
+  position:absolute; inset:0; overflow:hidden; background:#0c1427;
+  cursor:grab; user-select:none; -webkit-user-select:none; touch-action:none;
+}
+#previewWrap:active{ cursor:grabbing }
+
+#preview{
+  position:absolute; left:0; top:0;
+  will-change: transform, width, height;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.02) 0 1px, transparent 1px 24px);
+}
+
+/* Optional extra layer if your JS adds one */
+#preview .stageLayer{
+  position:absolute; left:0; top:0; width:100%; height:100%;
+  transform-origin:0 0; will-change:transform;
+}
+
+/* Floating editor panel */
+.pane.left{
+  position:absolute; top:16px; left:16px;
+  width:clamp(360px, 36vw, 640px); height:calc(100% - 32px);
+  background:var(--panel); border:1px solid var(--panel-border); border-radius:12px;
+  box-shadow: 0 24px 64px var(--shadow);
+  z-index:10; overflow:hidden;
+}
+.pane-title{
+  padding:10px 12px; font-weight:600; border-bottom:1px solid var(--panel-border); background:var(--panel-2);
+}
+#editor{ position:absolute; top:34px; left:0; right:0; bottom:28px; min-height:0 }
+.help{
+  position:absolute; left:12px; right:12px; bottom:6px; color:var(--muted); font-size:12px;
+  border-top:1px solid var(--panel-border); padding-top:6px;
+}
+.error{
+  position:absolute; left:16px; right:16px; bottom:16px;
+  padding:10px 12px; color:#ffd7d7; background:#3a0e1a; border:1px solid #6b1b2e;
+  border-radius:8px; z-index:11;
+}
+.pane.left.drag{ outline:2px dashed var(--accent); outline-offset:-6px }
+
+/* ============================================================================
+   Mermaid polish (applies to SVG inside #preview)
+   ========================================================================== */
+#preview svg{ font-family: var(--mermaid-font-family); display:block; }
+
+/* optional grid injected via postProcess() */
+#preview .rw-grid{ opacity:.25; pointer-events:none; }
+
+/* Nodes */
+#preview .node rect,
+#preview .node circle,
+#preview .node polygon{
+  fill:#0f1b34; stroke:var(--stroke); stroke-width:1.4px; rx:10; ry:10;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
+}
+
+/* UE-style tinted “comment box” clusters (subgraphs) */
+#preview .cluster rect,
+#preview g.cluster > rect{
+  /* default gold-ish tint with transparency */
+  fill: rgba(233,196,106,.12);
+  stroke: #e9c46a;
+  stroke-width: 1.8px;
+  rx: 18; ry: 18;
+  filter: drop-shadow(0 10px 28px rgba(0,0,0,.38));
+}
+
+/* cluster title contrast */
+#preview .cluster .label text{
+  fill:#f5e6bd; font-weight:600; letter-spacing:.2px;
+}
+
+/* Tint variants — opt-in per subgraph using :::g-? class */
+#preview .cluster.g-gold   > rect{ fill: rgba(233,196,106,.12); stroke:#e9c46a }
+#preview .cluster.g-sky    > rect{ fill: rgba(56,189,248,.12);  stroke:#38bdf8 }
+#preview .cluster.g-emerald> rect{ fill: rgba(16,185,129,.12);  stroke:#34d399 }
+#preview .cluster.g-purple > rect{ fill: rgba(168,85,247,.12);  stroke:#a855f7 }
+#preview .cluster.g-rose   > rect{ fill: rgba(244,63,94,.12);   stroke:#f43f5e }
+
+/* Labels */
+#preview .node .label,
+#preview .cluster .label,
+#preview .label,
+#preview text{
+  fill:var(--text);
+  paint-order: stroke; stroke: rgba(0,0,0,.09); stroke-width:.6px;
+}
+
+/* Edges & arrowheads */
+#preview .edgePath path.path{
+  stroke:#b8c8ff; stroke-width:1.9px; opacity:.98;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+#preview .marker{ fill:#c6d4ff; opacity:.98 }
+
+/* High-contrast “chip” styling for edge labels */
+#preview .edgeLabel rect{
+  fill:var(--edge-chip-bg);
+  stroke:var(--edge-chip-stroke);
+  rx:7; ry:7;
+}
+#preview .edgeLabel .label,
+#preview .edgeLabel .label tspan,
+#preview .edgeLabel text{
+  fill:var(--edge-chip-text);
+  font-weight:500;
+}
+
+/* Sequence diagram bits */
+#preview .sequence .actor rect,
+#preview .sequence .labelBox{
+  fill:#0e1a36; stroke:var(--stroke); rx:8; ry:8;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.5));
+}
+#preview .sequence .messageLine0,
+#preview .sequence .messageLine1{ stroke:#a6b9d8 }
+#preview .note{
+  fill:#1f2937; stroke:#3b4454; rx:8; ry:8; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5));
+}
+#preview .note .label{ fill:#cbd5e1 }
+
+/* Swimlane striping */
+#preview .section0, #preview .section2, #preview .section4 { fill: rgba(80,160,255,.03) }
+#preview .section1, #preview .section3, #preview .section5 { fill: rgba(90,200,255,.03) }
+
+/* Titles */
+#preview .title{ fill:var(--text); font-weight:600 }
+
+/* Hover affordance */
+#preview .node:hover rect{ stroke:var(--accent); box-shadow:0 0 0 1px var(--accent) inset }
+
+/* Mermaid tooltip */
+.mermaidTooltip{
+  position:absolute; padding:6px 8px; background:#0e1a36; color:#e6eefc;
+  border:1px solid #223a6a; border-radius:6px; font-size:12px; pointer-events:none; z-index:20;
+}
+
+/* ============================================================================
+   Small niceties
+   ========================================================================== */
+a{ color:var(--accent); text-decoration:none }
+a:hover{ text-decoration:underline }
+
+/* Dark scrollbars (nice in Electron) */
+::-webkit-scrollbar{ width:10px; height:10px }
+::-webkit-scrollbar-track{ background:#0a1220 }
+::-webkit-scrollbar-thumb{ background:#1e2a4c; border-radius:8px }
+::-webkit-scrollbar-thumb:hover{ background:#2c4078 }
