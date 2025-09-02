@@ -27,7 +27,9 @@
 
   <!-- Monaco AMD loader (LOCAL). DO NOT import editor.main.js directly. -->
   <script>
+    // Map 'vs' to local Monaco
     window.require = { paths: { vs: "./vendor/monaco/vs" } };
+    // Absolute base for blob workers (relative paths won’t work in blob:)
     (function () {
       const base = new URL("./vendor/monaco/", window.location.href).toString();
       window.MonacoEnvironment = {
@@ -47,6 +49,8 @@
   <header class="topbar">
     <div class="brand">RenderWOW</div>
     <div class="controls">
+      <button id="btnToggleEditor" title="Hide/Show Editor">Hide Editor (Ctrl+\)</button>
+
       <select id="templatePicker" title="Templates">
         <option value="none">Templates...</option>
         <option value="flow">Flowchart</option>
