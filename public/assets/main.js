@@ -1,7 +1,7 @@
 ﻿// public/assets/main.js
 import { preProcess, postProcess } from "./pipeline.js";
 
-const $ = (s, el=document)=>el.querySelector(s);
+const $ = (s, el = document) => el.querySelector(s);
 
 const els = {
   editorHost: $("#editor"),
@@ -28,7 +28,7 @@ const els = {
 
 let editor;
 let zoom = 1;
-let pan  = { x: 0, y: 0 };
+let pan = { x: 0, y: 0 };
 let lastId = 0;
 let fitLock = false;
 
@@ -38,21 +38,21 @@ const LS_KEY_COLLAPSE = "rw:editorCollapsed";
 let stageW = 3200;
 let stageH = 2200;
 
-function updateStageSize(){
-  els.preview.style.width  = stageW + "px";
+function updateStageSize() {
+  els.preview.style.width = stageW + "px";
   els.preview.style.height = stageH + "px";
 }
 
-function svgEl(){ return els.preview.querySelector("svg"); }
-function nextId(){ lastId++; return "mmd-"+Date.now()+"-"+lastId; }
-function getCode(){ return editor.getValue(); }
-function setCode(v){ editor.setValue(v); }
+function svgEl() { return els.preview.querySelector("svg"); }
+function nextId() { lastId++; return "mmd-" + Date.now() + "-" + lastId; }
+function getCode() { return editor.getValue(); }
+function setCode(v) { editor.setValue(v); }
 
-function showError(err){
+function showError(err) {
   els.error.hidden = false;
   els.error.textContent = (err && err.message) ? err.message : String(err);
 }
-function clearError(){
+function clearError() {
   els.error.hidden = true;
   els.error.textContent = "";
 }
@@ -60,7 +60,7 @@ function clearError(){
 // ───────────────────────────────────────────────────────────────────────────────
 // Theme + vendors
 
-function initTheme(){
+function initTheme() {
   const dark = els.themeToggle.checked;
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   if (window.monaco) window.monaco.editor.setTheme(dark ? "vs-dark" : "vs");
@@ -68,25 +68,25 @@ function initTheme(){
 }
 els.themeToggle?.addEventListener("change", initTheme);
 
-function awaitMonaco(){
-  return new Promise((resolve, reject)=>{
+function awaitMonaco() {
+  return new Promise((resolve, reject) => {
     if (window.monaco) return resolve(window.monaco);
     if (typeof require !== "function") return reject(new Error("Monaco AMD loader missing"));
-    require(["vs/editor/editor.main"], ()=> resolve(window.monaco));
+    require(["vs/editor/editor.main"], () => resolve(window.monaco));
   });
 }
-async function awaitMermaid(){
+async function awaitMermaid() {
   const start = Date.now();
   while (!window.mermaid) {
-    await new Promise(r=>setTimeout(r,25));
-    if (Date.now()-start > 8000) throw new Error("Mermaid failed to load");
+    await new Promise(r => setTimeout(r, 25));
+    if (Date.now() - start > 8000) throw new Error("Mermaid failed to load");
   }
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Editor collapse helpers
 
-function updateEditorToggleLabel(){
+function updateEditorToggleLabel() {
   const collapsed = document.body.classList.contains("editor-collapsed");
   if (els.btnToggleEditor) {
     els.btnToggleEditor.textContent = collapsed
@@ -95,44 +95,41 @@ function updateEditorToggleLabel(){
   }
 }
 
-function setEditorCollapsed(on){
+function setEditorCollapsed(on) {
   document.body.classList.toggle("editor-collapsed", !!on);
   try { localStorage.setItem(LS_KEY_COLLAPSE, on ? "1" : "0"); } catch {}
   // Let CSS animate, then re-measure Monaco
-  setTimeout(()=> editor?.layout?.(), 220);
+  setTimeout(() => editor?.layout?.(), 220);
   updateEditorToggleLabel();
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Transform helpers (CSS transform on <svg>)
 
-function applyTransform(){
-  const svg = svgEl(); if(!svg) return;
+function applyTransform() {
+  const svg = svgEl(); if (!svg) return;
   svg.style.transformOrigin = "0 0";
   svg.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
   ensureSlack(); // grow background if we approach right/bottom edges
 }
 
-/**
- * Fit content to the viewport with padding and center it IN THE VIEWPORT.
- * This is the usual "fit to screen" you expect from design tools.
- */
-function fitToViewport(pad=48){
-  const svg = svgEl(); if(!svg) return;
+/** Fit content to the viewport with padding and center it IN THE VIEWPORT. */
+function fitToViewport(pad = 48) {
+  const svg = svgEl(); if (!svg) return;
 
-  const box  = svg.getBBox();
+  const box = svg.getBBox();
   const view = els.previewWrap.getBoundingClientRect();
 
-  const sx = (view.width  - pad) / Math.max(box.width, 1);
+  const sx = (view.width - pad) / Math.max(box.width, 1);
   const sy = (view.height - pad) / Math.max(box.height, 1);
 
   zoom = Math.max(Math.min(sx, sy), 0.05);
 
   // Center the diagram inside the viewport (not the stage)
-  const contentW = box.width  * zoom;
+  const contentW = box.width * zoom;
   const contentH = box.height * zoom;
 
-  pan.x = ((view.width  - contentW) / 2) - box.x * zoom;
+  pan.x = ((view.width - contentW) / 2) - box.x * zoom;
   pan.y = ((view.height - contentH) / 2) - box.y * zoom;
 
   applyTransform();
@@ -141,31 +138,30 @@ function fitToViewport(pad=48){
 /**
  * Expand the stage so you don't run out of background on the right/bottom.
  * IMPORTANT: we NEVER nudge `pan` here (especially not for top/left).
- * That avoids the "snap back" when you drag high or far left.
  */
-function ensureSlack(margin = 120){
-  const svg = svgEl(); if(!svg) return;
+function ensureSlack(margin = 120) {
+  const svg = svgEl(); if (!svg) return;
   const box = svg.getBBox();
 
-  const left   = pan.x + box.x * zoom;
-  const top    = pan.y + box.y * zoom;
-  const right  = left + box.width  * zoom;
-  const bottom = top  + box.height * zoom;
+  const left = pan.x + box.x * zoom;
+  const top = pan.y + box.y * zoom;
+  const right = left + box.width * zoom;
+  const bottom = top + box.height * zoom;
 
   let changed = false;
 
   // Only extend the stage to the right/bottom.
-  if (right  > stageW - margin) { stageW = Math.ceil(right  + margin); changed = true; }
+  if (right > stageW - margin) { stageW = Math.ceil(right + margin); changed = true; }
   if (bottom > stageH - margin) { stageH = Math.ceil(bottom + margin); changed = true; }
 
   if (changed) updateStageSize();
 }
 
 /** Mouse-anchored zoom in CSS pixel space */
-function zoomAt(clientX, clientY, factor){
-  const svg = svgEl(); if(!svg) return;
+function zoomAt(clientX, clientY, factor) {
+  const svg = svgEl(); if (!svg) return;
   const rect = els.previewWrap.getBoundingClientRect();
-  const box  = svg.getBBox();
+  const box = svg.getBBox();
 
   const mx = clientX - rect.left;
   const my = clientY - rect.top;
@@ -179,7 +175,7 @@ function zoomAt(clientX, clientY, factor){
   // Keep the same world point under the cursor
   pan.x = mx - (wx + box.x) * newZoom;
   pan.y = my - (wy + box.y) * newZoom;
-  zoom  = newZoom;
+  zoom = newZoom;
 
   applyTransform();
 }
@@ -187,8 +183,8 @@ function zoomAt(clientX, clientY, factor){
 // ───────────────────────────────────────────────────────────────────────────────
 // Rendering
 
-async function renderNow(){
-  try{
+async function renderNow() {
+  try {
     clearError();
     const raw = getCode();
     if (!raw.trim()) return;
@@ -219,12 +215,12 @@ async function renderNow(){
     svg.style.height = "auto";
     svg.style.display = "block";
 
-    // Grid + padding + wrapper
+    // Grid + padding + wrapper + any post-DOM fixes
     postProcess(svg);
 
     // Start centered/visible every render unless the user has taken control
     if (!fitLock) fitToViewport(48); else applyTransform();
-  }catch(e){
+  } catch (e) {
     showError(e);
   }
 }
@@ -233,51 +229,51 @@ async function renderNow(){
 // Controls
 
 els.btnRender?.addEventListener("click", renderNow);
-els.btnFit.addEventListener("click", ()=>{ fitLock=false; fitToViewport(48); });
-els.btnZoomIn.addEventListener("click", ()=>{
+els.btnFit.addEventListener("click", () => { fitLock = false; fitToViewport(48); });
+els.btnZoomIn.addEventListener("click", () => {
   const r = els.previewWrap.getBoundingClientRect();
-  zoomAt(r.left + r.width/2, r.top + r.height/2, 1.15);
+  zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.15);
   fitLock = true;
 });
-els.btnZoomOut.addEventListener("click", ()=>{
+els.btnZoomOut.addEventListener("click", () => {
   const r = els.previewWrap.getBoundingClientRect();
-  zoomAt(r.left + r.width/2, r.top + r.height/2, 1/1.15);
+  zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.15);
   fitLock = true;
 });
-els.btnReset.addEventListener("click", ()=>{
+els.btnReset.addEventListener("click", () => {
   fitLock = false;
   fitToViewport(48);
 });
 
-// NEW: collapse/expand button
-els.btnToggleEditor?.addEventListener("click", ()=>{
+// Collapse/expand button
+els.btnToggleEditor?.addEventListener("click", () => {
   const collapsed = !document.body.classList.contains("editor-collapsed");
   setEditorCollapsed(collapsed);
 });
 
 // Drag to pan (pixels)
-let dragging=false,last=null;
-els.previewWrap.addEventListener("mousedown", e=>{ dragging=true; last={x:e.clientX,y:e.clientY}; fitLock=true; });
-window.addEventListener("mousemove", e=>{
-  if(!dragging) return;
-  const dx=e.clientX-last.x, dy=e.clientY-last.y; last={x:e.clientX,y:e.clientY};
-  pan.x+=dx; pan.y+=dy; applyTransform();
+let dragging = false, last = null;
+els.previewWrap.addEventListener("mousedown", e => { dragging = true; last = { x: e.clientX, y: e.clientY }; fitLock = true; });
+window.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  const dx = e.clientX - last.x, dy = e.clientY - last.y; last = { x: e.clientX, y: e.clientY };
+  pan.x += dx; pan.y += dy; applyTransform();
 });
-window.addEventListener("mouseup", ()=> dragging=false);
+window.addEventListener("mouseup", () => dragging = false);
 
 // Ctrl/Cmd + wheel to zoom
-els.previewWrap.addEventListener("wheel", (e)=>{
-  if(!e.ctrlKey && !e.metaKey) return;
+els.previewWrap.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
-  zoomAt(e.clientX, e.clientY, (e.deltaY>0)?1/1.08:1.08);
+  zoomAt(e.clientX, e.clientY, (e.deltaY > 0) ? 1 / 1.08 : 1.08);
   fitLock = true;
-},{passive:false});
+}, { passive: false });
 
 // Keyboard: render & collapse shortcut
-window.addEventListener("keydown", (e)=>{
+window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
-  if((e.ctrlKey||e.metaKey) && k==="s"){ e.preventDefault(); renderNow(); }
-  if((e.ctrlKey||e.metaKey) && e.key === "\\"){
+  if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); renderNow(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
     e.preventDefault();
     const collapsed = !document.body.classList.contains("editor-collapsed");
     setEditorCollapsed(collapsed);
@@ -285,54 +281,54 @@ window.addEventListener("keydown", (e)=>{
 });
 
 // Keep your placement on resize (don’t snap unless you never moved)
-window.addEventListener("resize", ()=> { if (!fitLock) fitToViewport(48); else ensureSlack(); });
+window.addEventListener("resize", () => { if (!fitLock) fitToViewport(48); else ensureSlack(); });
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Export / Share
 
-function download(filename, text, mime){
-  const blob = new Blob([text], {type: mime});
+function download(filename, text, mime) {
+  const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=> URL.revokeObjectURL(url), 250);
+  setTimeout(() => URL.revokeObjectURL(url), 250);
 }
 
-els.btnExportSvg.addEventListener("click", async ()=>{
-  const svg = svgEl(); if(!svg) return;
+els.btnExportSvg.addEventListener("click", async () => {
+  const svg = svgEl(); if (!svg) return;
   const xml = new XMLSerializer().serializeToString(svg);
   if (window.RW?.saveSvg) { await window.RW.saveSvg(xml); return; }
   download("diagram.svg", xml, "image/svg+xml;charset=utf-8");
 });
 
-els.btnExportPng.addEventListener("click", async ()=>{
-  const svg = svgEl(); if(!svg) return;
+els.btnExportPng.addEventListener("click", async () => {
+  const svg = svgEl(); if (!svg) return;
   const xml = new XMLSerializer().serializeToString(svg);
   const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
   const img = new Image();
-  img.onload = async ()=>{
+  img.onload = async () => {
     const scale = 2;
     const c = document.createElement("canvas");
-    c.width = img.width*scale; c.height = img.height*scale;
+    c.width = img.width * scale; c.height = img.height * scale;
     const ctx = c.getContext("2d");
     ctx.fillStyle = getComputedStyle(document.body).backgroundColor || "#0b1220";
-    ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillRect(0, 0, c.width, c.height);
     ctx.drawImage(img, 0, 0, c.width, c.height);
     const dataUrl = c.toDataURL("image/png");
     if (window.RW?.savePng) { await window.RW.savePng(dataUrl); return; }
-    const a = document.createElement("a"); a.href=dataUrl; a.download="diagram.png"; a.click();
+    const a = document.createElement("a"); a.href = dataUrl; a.download = "diagram.png"; a.click();
   };
   img.src = src;
 });
 
-els.btnShare.addEventListener("click", ()=>{
+els.btnShare.addEventListener("click", () => {
   const packed = LZString.compressToEncodedURIComponent(getCode());
-  const isDark = document.documentElement.getAttribute("data-theme")==="dark" ? "1" : "0";
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark" ? "1" : "0";
   const url = `renderwow://local#t=${isDark}&c=${packed}`;
   navigator.clipboard?.writeText(url);
   els.btnShare.textContent = "Copied!";
-  setTimeout(()=> els.btnShare.textContent="Copy Share URL", 1200);
+  setTimeout(() => els.btnShare.textContent = "Copy Share URL", 1200);
 });
 
 // Templates / format
@@ -385,23 +381,23 @@ User: 2: choose crypto
 User: 5: confirm`
 };
 
-els.templatePicker.addEventListener("change", (e)=>{
+els.templatePicker.addEventListener("change", (e) => {
   const v = e.target.value;
-  if(templates[v]){ setCode(templates[v]); renderNow(); }
+  if (templates[v]) { setCode(templates[v]); renderNow(); }
   e.target.value = "none";
 });
-els.btnFormat.addEventListener("click", ()=>{
-  const lines = getCode().replace(/\r\n/g,"\n").split("\n");
-  const formatted = lines.map(l=>l.replace(/\s+$/,"")).join("\n").trim()+"\n";
+els.btnFormat.addEventListener("click", () => {
+  const lines = getCode().replace(/\r\n/g, "\n").split("\n");
+  const formatted = lines.map(l => l.replace(/\s+$/, "")).join("\n").trim() + "\n";
   setCode(formatted);
 });
 
 // Drag-drop onto the editor panel
-function handleDrop(){
+function handleDrop() {
   const left = document.querySelector(".pane.left");
-  left.addEventListener("dragover", (e)=>{ e.preventDefault(); left.classList.add("drag"); });
-  left.addEventListener("dragleave", ()=> left.classList.remove("drag"));
-  left.addEventListener("drop", async (e)=>{
+  left.addEventListener("dragover", (e) => { e.preventDefault(); left.classList.add("drag"); });
+  left.addEventListener("dragleave", () => left.classList.remove("drag"));
+  left.addEventListener("drop", async (e) => {
     e.preventDefault(); left.classList.remove("drag");
     const f = e.dataTransfer.files && e.dataTransfer.files[0];
     if (!f) return;
@@ -409,7 +405,7 @@ function handleDrop(){
     setCode(text); renderNow();
   });
 }
-function wireDocs(){
+function wireDocs() {
   const url = "https://mermaid.js.org";
   if (!els.docsLink) return;
   els.docsLink.href = url;
@@ -418,7 +414,7 @@ function wireDocs(){
 // ───────────────────────────────────────────────────────────────────────────────
 // Boot
 
-async function boot(){
+async function boot() {
   await awaitMonaco();
   await awaitMermaid();
 
@@ -427,14 +423,14 @@ async function boot(){
   editor = monaco.editor.create(els.editorHost, {
     value: SAMPLE,
     language: "markdown",
-    theme: (document.documentElement.getAttribute("data-theme")==="dark") ? "vs-dark" : "vs",
+    theme: (document.documentElement.getAttribute("data-theme") === "dark") ? "vs-dark" : "vs",
     automaticLayout: true,
     minimap: { enabled: false },
     wordWrap: "on",
     fontSize: 14,
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace"
   });
-  editor.onDidChangeModelContent(()=> setTimeout(renderNow, 250));
+  editor.onDidChangeModelContent(() => setTimeout(renderNow, 250));
 
   handleDrop();
   wireDocs();

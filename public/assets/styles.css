@@ -137,15 +137,22 @@ body.editor-collapsed .pane.left{
   filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
 }
 
-/* UE-style tinted “comment box” clusters (subgraphs) */
-#preview .cluster rect,
-#preview g.cluster > rect{
-  /* default gold-ish tint with transparency */
+/* ── Subgraphs (UE-style tinted “comment boxes”) ─────────────────────────── */
+
+/* Put defaults on the group so Mermaid `style <id>` can override per-subgraph */
+#preview .cluster{
   fill: rgba(233,196,106,.12);
   stroke: #e9c46a;
   stroke-width: 1.8px;
-  rx: 18; ry: 18;
   filter: drop-shadow(0 10px 28px rgba(0,0,0,.38));
+}
+
+/* The actual rect inherits from the group */
+#preview .cluster > rect{
+  fill: inherit;
+  stroke: inherit;
+  stroke-width: inherit;
+  rx: 18; ry: 18;
 }
 
 /* cluster title contrast */
@@ -153,12 +160,24 @@ body.editor-collapsed .pane.left{
   fill:#f5e6bd; font-weight:600; letter-spacing:.2px;
 }
 
-/* Tint variants — (optional) if you add classes to clusters */
-#preview .cluster.g-gold   > rect{ fill: rgba(233,196,106,.12); stroke:#e9c46a }
-#preview .cluster.g-sky    > rect{ fill: rgba(56,189,248,.12);  stroke:#38bdf8 }
-#preview .cluster.g-emerald> rect{ fill: rgba(16,185,129,.12);  stroke:#34d399 }
-#preview .cluster.g-purple > rect{ fill: rgba(168,85,247,.12);  stroke:#a855f7 }
-#preview .cluster.g-rose   > rect{ fill: rgba(244,63,94,.12);   stroke:#f43f5e }
+/* Tint variants — opt-in with :::g-{name} on subgraph (or via `style` lines) */
+#preview .cluster.g-gold    { fill: rgba(233,196,106,.12); stroke:#e9c46a }
+#preview .cluster.g-sky     { fill: rgba(56,189,248,.12);  stroke:#38bdf8 }
+#preview .cluster.g-emerald { fill: rgba(16,185,129,.12);  stroke:#34d399 }
+#preview .cluster.g-purple  { fill: rgba(168,85,247,.12);  stroke:#a855f7 }
+#preview .cluster.g-rose    { fill: rgba(244,63,94,.12);   stroke:#f43f5e }
+#preview .cluster.g-orange  { fill: rgba(251,146,60,.12);  stroke:#fb923c }
+#preview .cluster.g-indigo  { fill: rgba(99,102,241,.12);  stroke:#6366f1 }
+
+/* Make tinted subgraph titles readable */
+#preview .cluster.g-sky .label text,
+#preview .cluster.g-emerald .label text,
+#preview .cluster.g-purple .label text,
+#preview .cluster.g-rose .label text,
+#preview .cluster.g-orange .label text,
+#preview .cluster.g-indigo .label text{
+  fill:#eaf2ff; font-weight:700; letter-spacing:.2px;
+}
 
 /* Labels */
 #preview .node .label,
@@ -169,24 +188,32 @@ body.editor-collapsed .pane.left{
   paint-order: stroke; stroke: rgba(0,0,0,.09); stroke-width:.6px;
 }
 
-/* Edges & arrowheads */
+/* ── Edges & arrowheads (brighter, crisper) ──────────────────────────────── */
 #preview .edgePath path.path{
-  stroke:#b8c8ff; stroke-width:1.9px; opacity:.98;
-  stroke-linecap:round; stroke-linejoin:round;
+  stroke:#9be0ff;            /* brighter cyan */
+  stroke-width:2.2px;        /* slightly thicker for readability */
+  opacity:1;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  filter: drop-shadow(0 0 2px rgba(155,224,255,.35));
 }
-#preview .marker{ fill:#c6d4ff; opacity:.98 }
+#preview .marker{ fill:#9be0ff; opacity:1 }
 
 /* High-contrast “chip” styling for edge labels */
+#preview .edgeLabel{
+  color: var(--edge-chip-text); /* allows linkStyle color to flow via currentColor */
+}
 #preview .edgeLabel rect{
-  fill:var(--edge-chip-bg);
-  stroke:var(--edge-chip-stroke);
+  /* darker chip so the label pops on dark canvas */
+  fill: rgba(16,28,56,.92);
+  stroke:#9be0ff;
   rx:7; ry:7;
 }
 #preview .edgeLabel .label,
 #preview .edgeLabel .label tspan,
 #preview .edgeLabel text{
-  fill:var(--edge-chip-text);
-  font-weight:500;
+  fill: currentColor;   /* let Mermaid linkStyle color override when set */
+  font-weight:600;
 }
 
 /* Sequence diagram bits */
