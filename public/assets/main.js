@@ -10,6 +10,7 @@ const els = {
   error: $("#error"),
   templatePicker: $("#templatePicker"),
   themeToggle: $("#themeToggle"),
+  btnToggleEditor: $("#btnToggleEditor"),
   btnRender: $("#btnRender"),
   btnFormat: $("#btnFormat"),
   btnFit: $("#btnFit"),
@@ -31,7 +32,9 @@ let pan  = { x: 0, y: 0 };
 let lastId = 0;
 let fitLock = false;
 
-// Stage size (background canvas). We only grow to the right/bottom.
+const LS_KEY_COLLAPSE = "rw:editorCollapsed";
+
+// Stage size (just the background canvas). We only grow to the right/bottom.
 let stageW = 3200;
 let stageH = 2200;
 
@@ -81,6 +84,26 @@ async function awaitMermaid(){
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
+// Editor collapse helpers
+
+function updateEditorToggleLabel(){
+  const collapsed = document.body.classList.contains("editor-collapsed");
+  if (els.btnToggleEditor) {
+    els.btnToggleEditor.textContent = collapsed
+      ? "Show Editor (Ctrl+\\)"
+      : "Hide Editor (Ctrl+\\)";
+  }
+}
+
+function setEditorCollapsed(on){
+  document.body.classList.toggle("editor-collapsed", !!on);
+  try { localStorage.setItem(LS_KEY_COLLAPSE, on ? "1" : "0"); } catch {}
+  // Let CSS animate, then re-measure Monaco
+  setTimeout(()=> editor?.layout?.(), 220);
+  updateEditorToggleLabel();
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
 // Transform helpers (CSS transform on <svg>)
 
 function applyTransform(){
@@ -92,6 +115,7 @@ function applyTransform(){
 
 /**
  * Fit content to the viewport with padding and center it IN THE VIEWPORT.
+ * This is the usual "fit to screen" you expect from design tools.
  */
 function fitToViewport(pad=48){
   const svg = svgEl(); if(!svg) return;
@@ -104,7 +128,7 @@ function fitToViewport(pad=48){
 
   zoom = Math.max(Math.min(sx, sy), 0.05);
 
-  // Center in the viewport (not the stage)
+  // Center the diagram inside the viewport (not the stage)
   const contentW = box.width  * zoom;
   const contentH = box.height * zoom;
 
@@ -116,7 +140,8 @@ function fitToViewport(pad=48){
 
 /**
  * Expand the stage so you don't run out of background on the right/bottom.
- * IMPORTANT: we NEVER nudge `pan` here (avoids “snap back” if you drag far up/left).
+ * IMPORTANT: we NEVER nudge `pan` here (especially not for top/left).
+ * That avoids the "snap back" when you drag high or far left.
  */
 function ensureSlack(margin = 120){
   const svg = svgEl(); if(!svg) return;
@@ -179,7 +204,7 @@ async function renderNow(){
       }
     });
 
-    const code = preProcess(raw);          // <- sanitized & init’d here
+    const code = preProcess(raw);
     const id = nextId();
     const r = await window.mermaid.render(id, code);
 
@@ -188,13 +213,13 @@ async function renderNow(){
 
     const svg = svgEl(); if (!svg) return;
 
-    // Don’t let Mermaid’s default sizing collapse the SVG
+    // Important: don't let Mermaid's max-width collapse the SVG
     svg.style.maxWidth = "none";
     svg.style.width = "auto";
     svg.style.height = "auto";
     svg.style.display = "block";
 
-    // Grid + padding + wrapper, plus cluster tints
+    // Grid + padding + wrapper
     postProcess(svg);
 
     // Start centered/visible every render unless the user has taken control
@@ -224,6 +249,12 @@ els.btnReset.addEventListener("click", ()=>{
   fitToViewport(48);
 });
 
+// NEW: collapse/expand button
+els.btnToggleEditor?.addEventListener("click", ()=>{
+  const collapsed = !document.body.classList.contains("editor-collapsed");
+  setEditorCollapsed(collapsed);
+});
+
 // Drag to pan (pixels)
 let dragging=false,last=null;
 els.previewWrap.addEventListener("mousedown", e=>{ dragging=true; last={x:e.clientX,y:e.clientY}; fitLock=true; });
@@ -241,6 +272,17 @@ els.previewWrap.addEventListener("wheel", (e)=>{
   zoomAt(e.clientX, e.clientY, (e.deltaY>0)?1/1.08:1.08);
   fitLock = true;
 },{passive:false});
+
+// Keyboard: render & collapse shortcut
+window.addEventListener("keydown", (e)=>{
+  const k = e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey) && k==="s"){ e.preventDefault(); renderNow(); }
+  if((e.ctrlKey||e.metaKey) && e.key === "\\"){
+    e.preventDefault();
+    const collapsed = !document.body.classList.contains("editor-collapsed");
+    setEditorCollapsed(collapsed);
+  }
+});
 
 // Keep your placement on resize (don’t snap unless you never moved)
 window.addEventListener("resize", ()=> { if (!fitLock) fitToViewport(48); else ensureSlack(); });
@@ -373,10 +415,6 @@ function wireDocs(){
   els.docsLink.href = url;
 }
 
-window.addEventListener("keydown", (e)=>{
-  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s"){ e.preventDefault(); renderNow(); }
-});
-
 // ───────────────────────────────────────────────────────────────────────────────
 // Boot
 
@@ -401,6 +439,12 @@ async function boot(){
   handleDrop();
   wireDocs();
   initTheme();
+
+  // Restore collapsed state
+  const startCollapsed = (localStorage.getItem(LS_KEY_COLLAPSE) === "1");
+  if (startCollapsed) document.body.classList.add("editor-collapsed");
+  updateEditorToggleLabel();
+
   renderNow(); // centers in viewport on first paint
 }
 boot();
