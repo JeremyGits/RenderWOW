@@ -1,6 +1,6 @@
 # RenderWOW
 
-A tiny, offline-first **Mermaid renderer** with a crisp dark theme, transparent containers, readable edge labels, a floating Monaco editor, and quality-of-life controls (zoom, pan, fit, export, share).  
+A tiny, offline-first **Mermaid renderer** with a crisp dark theme, transparent containers, readable edge labels, a floating editor and controls (zoom, pan, fit, export, share).  
 Built for quickly sketching architecture, flows, and docs while keeping everything local.
 I hope this helps you in some form or fashion in your life.
 
