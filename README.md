@@ -1,24 +1,34 @@
-# RenderWOW
+# RenderWOW — Mermaid-powered diagramming with opinionated polish
 
-A tiny, offline-first **Mermaid renderer** with a crisp dark theme, transparent containers, readable edge labels, a floating editor and controls (zoom, pan, fit, export, share).  <br>
-Built for quickly sketching architecture, flows, and docs while keeping everything local.<br>
-I hope this helps you in some form or fashion in your life.<br><br>
+RenderWOW is a tiny app (Electron or plain browser) that wraps **Mermaid** with:
+- A crisp dark theme and **tinted subgraph “comment boxes”**.
+- Readable, high-contrast **edge labels** and **brighter edges**.
+- A floating Monaco editor (collapse/expand with `Ctrl+\`) and live render (`Ctrl/Cmd+S`).
+- Pan/zoom, fit-to-screen, export **SVG** and **high-DPI PNG** (with inlined styles).
+- A few **writing conventions (“RenderWOW style”)** to keep complex diagrams consistent.
 
-[RenderWOW screenshot](https://i.imgur.com/p21hSrN.png)
+> ⚠️ We don’t change Mermaid’s grammar. Everything is standard Mermaid v10+. The
+> “RenderWOW style” below is a set of copy-pasteable patterns and color recipes that
+> make big system maps readable (edges by index, tinted clusters, safe labels, etc.).
 
----
+<br>
 
-## Features
-
-- 🎨 **Custom dark theme** with crisp edges, tinted subgraph “comment boxes,” and high‑contrast edge labels
-- 🧭 Pan & zoom (mousewheel with Ctrl/Cmd), **Fit to screen**, **Reset**
-- ✍️ **Floating Monaco editor** with collapse/expand (**Ctrl+\\**)
-- 🧱 Built‑in **templates** + quick **formatter**
-- 📤 Export **SVG** or **PNG**
-- 🔗 **Share URLs** (`renderwow://…`) that pack your diagram code + theme mode
-- 🧱 100% **offline vendors** (Mermaid, Monaco, LZ‑String) included
-
-> Electron app: macOS / Windows / Linux. No internet required once cloned.
+## Contents
+- [Install & Run](#install--run)
+- [Project Layout](#project-layout)
+- [Controls](#controls)
+- [Authoring — The RenderWOW Style](#authoring--the-renderwow-style)
+  - [1) The `init` block](#1-the-init-block)
+  - [2) Safe labels & shapes](#2-safe-labels--shapes)
+  - [3) Tinted subgraphs (clusters)](#3-tinted-subgraphs-clusters)
+  - [4) Colored edges by **index**](#4-colored-edges-by-index)
+  - [5) Curves, dashed lines & emphasis](#5-curves-dashed-lines--emphasis)
+  - [6) Link-label “chips”](#6-link-label-chips)
+  - [7) Node & cluster styling cheat sheet](#7-node--cluster-styling-cheat-sheet)
+- [Examples](#examples)
+- [Exporting (SVG & PNG) — exactly sized, non-blurry](#exporting-svg--png--exactly-sized-nonblurry)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
 
 ---
 
@@ -28,320 +38,334 @@ I hope this helps you in some form or fashion in your life.<br><br>
 # clone your repo, then:
 npm install
 
-# dev: launches Electron with hot reload
+# dev (Electron)
 npm run dev
 
-# produce a packaged app (platform-default)
+# build production package
 npm run build
 ```
 
-> Requires **Node.js 18+** and git. On Windows, use PowerShell or cmd.
+Requirements: **Node.js 18+**. Works on macOS / Windows / Linux.
 
 ---
 
-## Project Layout (important bits)
+## Project Layout
 
-```bash
+```text
 public/
-  index.html                # app shell (loads vendors, styles, main.js)
-
+  index.html              # app shell (loads vendors, styles, main.js)
   assets/
-    main.js                 # UI controls, pan/zoom, render, export, editor toggle
-    pipeline.js             # preProcess (sanitize) + postProcess (grid + padding)
-    styles.css              # active theme: crisp nodes, bright edges, chip labels
-    theme-wow.css           # optional baseline theme (reference / fallback)
-
+    main.js               # UI controls, pan/zoom, export, editor toggle
+    pipeline.js           # preProcess (sanitize) + postProcess (grid, padding)
+    styles.css            # layout + main Mermaid polish (active theme)
+    theme-wow.css         # optional reference theme
   vendor/
     mermaid/mermaid.min.js
     lz-string/lz-string.min.js
-    monaco/**               # Monaco loader + workers (local/offline)
+    monaco/**             # Monaco loader + workers (local/offline)
 
 electron/
-  main.js                   # Electron main (CSP, deep-link, save dialogs)
-  preload.js                # Exposes saveSvg/savePng to the renderer
-
-package.json
+  main.js                 # Electron main process (CSP, deep-link, save dialogs)
+  preload.js              # Exposes saveSvg/savePng to the renderer
+  package.json
 ```
 
 ---
 
-## Controls & Shortcuts
+## Controls
 
-- **Render:** `Ctrl/Cmd + S`
-- **Toggle Editor:** `Ctrl/Cmd + \` (or the “Hide/Show Editor” button)
-- **Zoom:** `Ctrl/Cmd + Mousewheel` (or +/- in toolbar)
-- **Pan:** Click+drag on the canvas
-- **Fit to Screen:** `Fit`
-- **Reset Pan/Zoom:** `Reset`
-- **Export:** “Export SVG” or “Export PNG”
-- **Share URL:** “Copy Share URL” (packs code & theme)
+| Action | How |
+|---|---|
+| Render | **Ctrl/Cmd + S** (or the **Render** button) |
+| Toggle editor | **Ctrl + \\\\** (or “Hide/Show Editor”) |
+| Zoom | `+` / `-` in toolbar, or **Ctrl/Cmd + Mousewheel** |
+| Pan | Click-drag on the canvas |
+| Fit to screen | **Fit** |
+| Reset pan/zoom | **Reset** |
+| Export | **Export SVG** / **Export PNG** |
+| Share (dev) | **Copy Share URL** (packs code + theme in a URL fragment) |
 
 ---
 
-## Mermaid “Scripting” Cheatsheet (RenderWOW‑tuned)
+## Authoring — The RenderWOW Style
 
-Everything below is **plain Mermaid** (no nonstandard syntax), so it works anywhere Mermaid runs. The theme in `styles.css` makes it look great in RenderWOW.
+RenderWOW diagrams are just **Mermaid**, plus a handful of conventions that make
+large maps readable and skimmable.
 
-### 1) Start a diagram
+### 1) The `init` block
 
-```mermaid
-flowchart TD
-  A[Start] --> B{Ready?}
-  B -- Yes --> C[Render]
-  B -- No  --> D[/Fix syntax/]
-  C --> E((Export))
-  D --> B
-```
-
-### 2) Edge styling (brighter, readable)
-
-Use **ASCII‑safe** rgb/rgba values to avoid stray Unicode in editors.
+Always start diagrams with an explicit init header so your colors/curves are stable:
 
 ```mermaid
-flowchart TD
-  %% brighter cyan lines
-  linkStyle default stroke:rgb(155,224,255),stroke-width:2.2px,color:rgb(200,240,255);
-
-  A[Client] -->|"HTTPS / fetch"| B[API]
-  B -->|"JSON"| C[(DB)]
+%%{init:{
+  "theme":"base",
+  "flowchart":{"curve":"basis","useMaxWidth":true},
+  "themeVariables":{
+    "fontFamily":"Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    "lineColor":"#9be0ff",
+    "arrowheadColor":"#9be0ff"
+  }
+}}%%
 ```
 
-> `linkStyle default …` applies to all edges. You can also target specific edges with `linkStyle 1 …`, `linkStyle 2 …` using edge indices.
+Notes:
+- **Don’t** use `linkStyle default` (it’s unsupported in some Mermaid builds). Use
+  `themeVariables.lineColor/arrowheadColor` for the baseline, then color specific
+  edges by **index** (below).
+- Curves: `basis` gives smooth paths on big canvases; try `linear` or `monotoneX`
+  if you need straighter lines.
 
-### 3) Node styles & classes
+### 2) Safe labels & shapes
+
+- **Always quote labels** that contain spaces/punctuation: `A["Express API"]`.
+- Newlines inside a label: use `<br/>` (HTML) not `\n`.
+- Prefer simple **node IDs**: letters/digits/underscores (`A1`, `server_js`)—avoid
+  dots or slashes in IDs and keep punctuation **inside the quotes** only.
+- Two-way links are TWO edges (Mermaid has no “double arrow”): `A-->B` **and** `B-->A`.
+
+Common flowchart shapes (examples):
+```mermaid
+flowchart LR
+  A["Rectangle"] --> B("Round")
+  B --> C{{"Decision"}}
+  C --> D[/"Database-ish"/]
+  D --> E[[ "Subroutine" ]]
+  E --> F(("Circle"))
+```
+
+### 3) Tinted subgraphs (clusters)
+
+Use subgraphs to group areas and tint with `style` lines (hex colors only).
 
 ```mermaid
 flowchart LR
-  classDef soft fill:#0f1b34,stroke:#2a4a7a,stroke-width:1.6px,rx:10,ry:10,color:#e6eefc;
-  classDef hot  fill:#1a1321,stroke:#a855f7,stroke-width:2px,color:#f2e9ff;
-
-  A[Orders]:::soft --> B[Service]:::soft --> C[(Ledger)]:::hot
-```
-
-- `classDef` defines a reusable style.
-- `:::soft` applies it to a node; you can also apply via `class A,B soft`.
-
-### 4) Subgraphs (“UE‑style” tinted comment boxes)
-
-You can tint each subgraph using **plain Mermaid `style <id> …`**.
-
-```mermaid
-flowchart TD
-  subgraph M["Middleware"]:::group
-    id1[Helmet] --> id2[CORS] --> id3[Rate limit]
+  subgraph API["Backend (Express)"]
+    A["server.js"] --> R["routes.js"]
   end
 
-  %% Tint the subgraph box (id is the *first* word after `subgraph`)
-  style M fill:rgba(233,196,106,.12),stroke:#e9c46a,stroke-width:1.8px,rx:18,ry:18;
+  %% RenderWOW tints (dark, readable in our theme)
+  style API fill:#181a4b,stroke:#6366f1,stroke-width:2px,color:#eef2ff
 ```
 
-> Tip: Use different rgba/stroke pairs to create multiple comment‑box colors.
+Tint presets we use a lot:
 
-Examples you can copy (pick one per subgraph):
+| Name | fill | stroke |
+|---|---|---|
+| sky | `#0f273a` | `#38bdf8` |
+| indigo | `#181a4b` | `#6366f1` |
+| purple | `#2a0f3a` | `#a855f7` |
+| emerald | `#10372b` | `#34d399` |
+| orange | `#3a1f0f` | `#fb923c` |
 
-```text
-fill:rgba(56,189,248,.12), stroke:#38bdf8       # sky
-fill:rgba(16,185,129,.12), stroke:#34d399       # emerald
-fill:rgba(168,85,247,.12), stroke:#a855f7       # purple
-fill:rgba(244,63,94,.12),  stroke:#f43f5e       # rose
-fill:rgba(251,146,60,.12),  stroke:#fb923c      # orange
-fill:rgba(99,102,241,.12),  stroke:#6366f1      # indigo
-```
+> You can also attach classes to subgraphs (`subgraph X["Title"]:::g-emerald`) and add
+> CSS rules for `.cluster.g-emerald`, but `style` lines are simplest and export-friendly.
 
-### 5) High‑contrast edge labels (“chips”)
+### 4) Colored edges by **index**
 
-The theme already styles edge labels as “chips”. Just add text on the link:
+Mermaid assigns an index to **each edge in the order it’s written** (0-based). You
+can target individual edges or ranges for color/width/dash patterns.
 
 ```mermaid
 flowchart LR
-  linkStyle default stroke:rgb(155,224,255),stroke-width:2.2px,color:rgb(200,240,255);
-  A[SPA] -->|"GET /api/reports"| B[API]
+  A --> B
+  B --> C
+  C -.-> D
+
+  %% index 0 = A→B, 1 = B→C, 2 = C-.->D
+  linkStyle 0 stroke:#38bdf8,stroke-width:2.2px,color:#def3ff
+  linkStyle 1 stroke:#6366f1,stroke-width:2.2px,color:#e8eaff
+  linkStyle 2 stroke:#f43f5e,stroke-dasharray:6 4,stroke-width:2.2px,color:#ffe6eb
 ```
 
-### 6) Example: Your API map (clean, copy‑ready)
+**Tips**
+- Keep a “**Edge index map**” comment at the bottom of your diagram. Every time you
+  add/remove an edge, update the index list and your `linkStyle …` lines.
+- `color:` controls the **label text** color that floats on the edge.
+- Supported style props on links: `stroke`, `stroke-width`, `stroke-dasharray`,
+  and `color` (for the label).
+
+### 5) Curves, dashed lines & emphasis
+
+- Use `-.->` for “soft/optional” or background flows; add `stroke-dasharray:6 4` for
+  visible dashes.
+- Prefer `basis` curves for spaghetti-ish graphs; switch to `linear` for straight wiring.
+- Make “hot paths” slightly thicker (`stroke-width:2.2px`+).
+
+### 6) Link-label “chips”
+
+RenderWOW’s CSS gives edge labels a readable chip on dark backgrounds. You don’t
+need to do anything special; when you add `|label|` it will render as a pill with
+contrast. Example:
 
 ```mermaid
-flowchart TD
-
-  %% Optional layout polish (safe values)
-  %%{init: {'flowchart': {'curve': 'basis', 'rankSpacing': 40, 'nodeSpacing': 30}}}%%
-
-  %% ─────────────────────────────────────────────────────────────────────────
-  %% Node classes (tiny nodes get a hint of category color)
-  classDef client fill:#0e1a36,stroke:#7dd3fc,color:#e6f3ff,stroke-width:1.4px,rx:8,ry:8;
-  classDef api    fill:#0e1a36,stroke:#f59e0b,color:#fff7e6,stroke-width:1.4px,rx:8,ry:8;
-  classDef svc    fill:#0e1a36,stroke:#a855f7,color:#f5e9ff,stroke-width:1.4px,rx:8,ry:8;
-  classDef db     fill:#0e1a36,stroke:#22c55e,color:#eafff3,stroke-width:1.4px,rx:8,ry:8;
-  classDef ext    fill:#0e1a36,stroke:#38bdf8,color:#eaf7ff,stroke-width:1.4px,rx:8,ry:8;
-
-  %% ─────────────────────────────────────────────────────────────────────────
-  %% CLIENTS
-  A["Clerks & Admins<br/>(Browser :5173)"]:::client
-  B["React SPA<br/>Vite + React Router + Axios"]:::client
+flowchart LR
   A -->|"HTTPS / fetch"| B
+```
 
-  %% FRONTEND -> BACKEND
-  C["Express API<br/>(server.js)"]:::api
-  B -->|"/api/* with JWT<br/>+ refresh cookie"| C
+### 7) Node & cluster styling cheat sheet
 
-  %% MIDDLEWARE
+- `style N fill:#0f1b34,stroke:#1e335f,stroke-width:1.4px,color:#eaf2ff,rx:10,ry:10`
+- Cluster (subgraph) title gains the cluster’s text color (`color:`). For more contrast,
+  prefer `color:#eaf6ff` on dark fills.
+- Avoid `rgba()` in Mermaid `style` lines for portability—use hex.
+
+---
+
+## Examples
+
+### A) API + Middleware + Routers (with colored edges)
+```mermaid
+%%{init:{
+  "theme":"base",
+  "flowchart":{"curve":"basis","useMaxWidth":true},
+  "themeVariables":{"lineColor":"#9be0ff","arrowheadColor":"#9be0ff"}
+}}%%
+flowchart TD
+  A["Clerks & Admins<br/>(Browser :5173)"] -->|"HTTPS / fetch"| B["React SPA<br/>Vite + React Router + Axios"]
+  B -->|"/api/* with JWT<br/>+ refresh cookie"| C["Express API<br/>(server.js)"]
+
   subgraph M["Middleware"]
-    M1["Helmet CSP"]:::svc --> M2["CORS allowlist"]:::svc --> M3["Compression"]:::svc --> M4["Request ID"]:::svc --> M5["Rate limiter"]:::svc --> M6["Cookie parser"]:::svc --> M7["Auth/JWT guard"]:::svc
+    M1["Helmet CSP"] --> M2["CORS allowlist"] --> M3["Compression"] --> M4["Request ID"]
+    M4 --> M5["Rate limiter"] --> M6["Cookie parser"] --> M7["Auth/JWT guard"]
   end
-  %% tint cluster safely (hex + fill-opacity)
-  style M fill:#e9c46a,fill-opacity:0.12,stroke:#e9c46a,stroke-width:1.8px,rx:18,ry:18;
   C --> M
 
-  %% ROUTERS
   subgraph R["Routers (/api/*)"]
-    R1["/auth/"]:::api
-    R2["/products + /categories + /modifiers/"]:::api
-    R3["/orders/"]:::api
-    R4["/payments/"]:::api
-    R5["/devices + /profiles + /staff + /time + /payroll/"]:::api
-    R6["/inventory/"]:::api
-    R7["/reports/"]:::api
-    R8["/doge/*"]:::api
-    R9["/webhooks/*"]:::api
-    R10["/rates/*"]:::api
+    R1["/auth/"] R2["/products"] R3["/orders/"]
   end
-  style R fill:#38bdf8,fill-opacity:0.12,stroke:#38bdf8,stroke-width:1.8px,rx:18,ry:18;
   C --> R
 
-  %% SERVICES
-  subgraph S["Services"]
-    S1["Payments Engine"]:::svc
-    S2["Stripe/Coinbase<br/>Webhooks"]:::svc
-    S3["DOGE Price Watcher<br/>(Coingecko)"]:::svc
-    S4["DOGE Tx Watcher<br/>(walletnotify + RPC)"]:::svc
-    S5["Inventory Logic"]:::svc
-    S6["Ledger/Reporting<br/>Aggregations"]:::svc
-  end
-  style S fill:#a855f7,fill-opacity:0.12,stroke:#a855f7,stroke-width:1.8px,rx:18,ry:18;
+  %% Tints
+  style M fill:#10372b,stroke:#34d399,stroke-width:2px,color:#eafffa
+  style R fill:#0f273a,stroke:#38bdf8,stroke-width:2px,color:#eaf6ff
 
-  R4 --> S1
-  R8 --> S4
-  R10 --> S3
-  R6 --> S5
-  R7 --> S6
-  R9 --> S2
-
-  %% PROVIDERS
-  subgraph P["External Providers"]
-    P1["Stripe API"]:::ext
-    P2["Coinbase Commerce"]:::ext
-    P3["Dogecoin Core RPC<br/>127.0.0.1:18332"]:::ext
-  end
-  style P fill:#34d399,fill-opacity:0.12,stroke:#34d399,stroke-width:1.8px,rx:18,ry:18;
-
-  S1 <--> P1
-  S1 <--> P2
-  S4 <--> P3
-  R8 <--> P3
-
-  %% DATA
-  subgraph D["MongoDB"]
-    D1["Users"]:::db
-    D2["Orders"]:::db
-    D3["Payments"]:::db
-    D4["Ledger"]:::db
-    D5["Inventory: Items,<br/>Levels, Moves, Vendors,<br/>Receipts, PO, StockLedger"]:::db
-    D6["Devices/Profiles/Staff"]:::db
-    D7["DOGE Price Snapshot"]:::db
-  end
-  style D fill:#6366f1,fill-opacity:0.12,stroke:#6366f1,stroke-width:1.8px,rx:18,ry:18;
-
-  R1 --> D1
-  R3 --> D2
-  R4 --> D3
-  S6 --> D3
-  S6 --> D4
-  R6 --> D5
-  R5 --> D6
-  S3 --> D7
-  S4 --> D3
-
-  %% DASHBOARD
-  B -.->|"GET /api/reports/dashboard"| R7
-  R7 -->|"aggregate"| D3
-  R7 -->|"joins"| D4
-
+  %% Edges by index (0-based)
+  %% 0 A→B, 1 B→C, 2 C→M, 3 C→R
+  linkStyle 0,1 stroke:#38bdf8,stroke-width:2.2px,color:#def3ff
+  linkStyle 2 stroke:#34d399,stroke-width:2.2px,color:#eafff6
+  linkStyle 3 stroke:#6366f1,stroke-width:2.2px,color:#e8eaff
 ```
 
-### 7) Other diagram types (built‑ins)
-
-RenderWOW ships with **templates** (via the “Templates…” menu). You can paste these directly too:
-
-**Sequence Diagram**
-
+### B) Apps/Workers ↔ Replica Set (rollups & change streams)
 ```mermaid
-sequenceDiagram
-  participant User
-  participant Server
-  User->>Server: GET /preview
-  Server-->>User: 200 OK
-  User->>Server: POST /export (svg)
-  Server-->>User: 201 Created
+%%{init:{
+  "theme":"base",
+  "flowchart":{"curve":"basis","useMaxWidth":true}
+}}%%
+flowchart TD
+  A["Express API"] --> PR["Primary"]
+  S2["Secondary (hidden)"] -.-> ETL["Reporting/ETL Jobs"]
+  PR --- POS[(posdb)] & CRM[(crmdb)] & TIX[(ticketdb)] & ANA[(analyticsdb)]
+  S2 --- ANA
+  K["KDS Service"] -.->|changeStream| POS
+
+  style ANA fill:#10372b,stroke:#34d399,stroke-width:2px,color:#eafffa
+  linkStyle 1 stroke:#6366f1,stroke-dasharray:6 4,stroke-width:2.2px,color:#e8eaff
 ```
 
-**ER Diagram**
-
+### C) Storefront → API (colored groups + dashed helpers)
 ```mermaid
-erDiagram
-  CUSTOMER ||--o{ ORDER : places
-  ORDER ||--|{ ORDER_ITEM : contains
-  PRODUCT ||--o{ ORDER_ITEM : referenced
+%%{init:{"theme":"base","flowchart":{"curve":"basis","useMaxWidth":true}}}%%
+flowchart LR
+  subgraph UI["Frontend (React)"]
+    L["Layout.jsx / TopNav"] --> S["pages/store/Storefront.jsx"]
+    S --> Search["SearchBox"]
+    S --> Grid["ProductGrid<br/>(Card: image, title, price, Add)"]
+    S --> Cart["CartPanel<br/>(lines, subtotal, tax, tip, total)"]
+    Cart --> Contact["EmailForReceipt"]
+    Cart --> Tip["TipSelector (0/10/15/20)"]
+    Cart --> Pay["PayButtons<br/>Card · DOGE · LTC"]
+    Pay --> Finalize["Finalize Order CTA"]
+    Pay -. "opens" .-> CryptoDialog["CryptoTender.tsx<br/>+ CryptoQRCode.jsx"]
+    S   -. "theme" .-> Theme["src/theme/{index,presets}"]
+  end
+
+  subgraph API["Backend (Express)"]
+    M[["server.js"]] --> P["products.routes.js"]
+    M --> C["catalog.routes.js"]
+    M --> MEN["menus.routes.js"]
+    M --> PAY["payments.routes.js"]
+    M --> DOGE["payments.doge.gw.routes.js"]
+    M --> LTC["ltc.routes.js"]
+  end
+
+  S -->|"fetch catalog/items"| C
+  S -->|"fetch catalog/items"| MEN
+  CryptoDialog -->|"POST invoice"| DOGE
+  Finalize -->|"POST payment/capture"| PAY
+
+  style UI  fill:#0f273a,stroke:#38bdf8,stroke-width:2px,color:#eaf6ff
+  style API fill:#181a4b,stroke:#6366f1,stroke-width:2px,color:#eef2ff
 ```
 
-**State Diagram**
+---
 
-```mermaid
-stateDiagram-v2
-  [*] --> Idle
-  Idle --> Rendering : codeChanged
-  Rendering --> Idle  : success
-  Rendering --> Error : invalid
-```
+## Exporting (SVG & PNG) — exactly sized, non-blurry
+
+RenderWOW’s exporter (in `assets/main.js`) fixes common issues:
+
+- **SVG**: we clone the live SVG, compute its **content bbox**, set an explicit
+  `viewBox`, **width/height**, insert a background rectangle, and **inline computed
+  styles**. Result: the SVG opens at full size in browsers and vector editors.  
+- **PNG**: we render that standalone SVG into a **clean same-origin canvas** (via
+  a Blob URL—no tainted canvas issues) and export at configurable scale
+  (`scale = 3` by default). Increase to `4`–`6` for poster-size output.
+
+**Tips**
+- If PNG looks black/blank, you’re likely hitting a CORS/taint issue. Our exporter
+  avoids this by using `URL.createObjectURL(new Blob([svg]))` instead of
+  `data:` URIs.
+- For massive diagrams, bump the PNG scale gradually; memory usage grows fast.
 
 ---
 
 ## Troubleshooting
 
-### “Expecting 'SEMI' … got 'UNICODE_TEXT'” (or similar)
-This usually means the editor injected **fancy Unicode characters** (smart quotes, en‑dash, non‑breaking spaces). Fix by:
-- Using **ASCII‑only** values (e.g., `rgb(155,224,255)` instead of hex with emoji fonts)
-- Re‑typing quotes `"` and `:` manually
-- Running the **Format** button to strip trailing spaces
+**“Parse error … Expecting 'SEMI'/'STYLE'/… got 'PS'”**  
+You likely pasted a line Mermaid doesn’t recognize (e.g. `linkStyle default …`).
+Remove it and either use **`themeVariables`** for baseline colors or index-based
+`linkStyle` for specific edges.
 
-### Nothing changes after editing CSS
-- The active theme is **`public/assets/styles.css`**. Make sure that’s the file you edited.
-- Hard reload the window (`Ctrl/Cmd + R`) or restart the dev app.
+**“The index N for linkStyle is out of bounds.”**  
+Indices are **0-based** and must be `< number_of_edges`. Keep an “Edge index map”
+comment and update it whenever you add/remove an edge.
 
-### Diagram off screen
-Click **Fit**. If you’ve panned/zoomed manually, Fit recenters to the viewport.
+**Labels don’t break lines.**  
+Use `<br/>` inside the quoted label. Example: `A["React SPA<br/>Vite + Router"]`.
+
+**Two-way arrows?**  
+Write two edges: `A-->B` **and** `B-->A`. Color both indices if needed.
+
+**Subgraph tint looks too bright/dim.**  
+Use the preset pairs above; keep fill fairly dark and text `color:#eaf6ff` for contrast.
+
+**PNG export fails with “Failed to execute 'toDataURL' … tainted canvas.”**  
+You’re loading the SVG via `data:` URL + remote fonts. RenderWOW fixes this by
+using a Blob URL. Use the built-in **Export PNG** button.
 
 ---
 
-## Share URLs
+## FAQ
 
-Use **Copy Share URL** to put a link like `renderwow://local#t=1&c=<packed>` on your clipboard. It contains:
-- `t=1|0` → dark/light
-- `c=` → LZ‑String compressed diagram text
+**Do you change Mermaid syntax?**  
+No. We keep to standard Mermaid. RenderWOW only adds CSS polish and authoring
+conventions (edge indexing, tints).
 
-Opening that link on a machine with RenderWOW installed opens the app and loads your diagram instantly.
+**Which Mermaid version?**  
+We target **Mermaid v10+**. Some older variants don’t support certain style props.
+
+**Can I add custom CSS?**  
+Yes—extend `styles.css`. The exporter inlines computed styles, so your look
+survives in SVG/PNG.
+
+**Why do my edges change color after I edit?**  
+Because indices shift when you add/remove edges. Keep the index map updated.
+
+**Can I theme edges globally?**  
+Use `themeVariables.lineColor`/`arrowheadColor` for the baseline, then color groups
+by index with `linkStyle` statements.
 
 ---
 
 ## License
-
-MIT © You / Your Org. Mermaid is © the Mermaid authors; Monaco is © Microsoft. See upstream licenses for vendor libraries in `public/vendor/`.
-
----
-
-## Credits
-
-- [Mermaid](https://mermaid.js.org/)
-- [Monaco Editor](https://microsoft.github.io/monaco-editor/)
-- [LZ‑String](https://pieroxy.net/blog/pages/lz-string/)
-
-> Have fun diagramming! If you make a cool theme tweak, PRs welcome. 🎉
+Use freely in your projects. Attribution appreciated but not required.
