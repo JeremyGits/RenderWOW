@@ -97,8 +97,7 @@ function updateEditorToggleLabel() {
 
 function setEditorCollapsed(on) {
   document.body.classList.toggle("editor-collapsed", !!on);
-  try { localStorage.setItem(LS_KEY_COLLAPSE, on ? "1" : "0"); } catch {}
-  // Let CSS animate, then re-measure Monaco
+  try { localStorage.setItem(LS_KEY_COLLAPSE, on ? "1" : "0"); } catch { }
   setTimeout(() => editor?.layout?.(), 220);
   updateEditorToggleLabel();
 }
@@ -113,11 +112,12 @@ function applyTransform() {
   ensureSlack(); // grow background if we approach right/bottom edges
 }
 
-/** Fit content to the viewport with padding and center it IN THE VIEWPORT. */
+/** Fit content to the viewport with padding and center it. */
 function fitToViewport(pad = 48) {
   const svg = svgEl(); if (!svg) return;
 
-  const box = svg.getBBox();
+  const root = svg.querySelector("g.mmd-root") || svg;
+  const box = root.getBBox();
   const view = els.previewWrap.getBoundingClientRect();
 
   const sx = (view.width - pad) / Math.max(box.width, 1);
@@ -125,7 +125,6 @@ function fitToViewport(pad = 48) {
 
   zoom = Math.max(Math.min(sx, sy), 0.05);
 
-  // Center the diagram inside the viewport (not the stage)
   const contentW = box.width * zoom;
   const contentH = box.height * zoom;
 
@@ -135,13 +134,11 @@ function fitToViewport(pad = 48) {
   applyTransform();
 }
 
-/**
- * Expand the stage so you don't run out of background on the right/bottom.
- * IMPORTANT: we NEVER nudge `pan` here (especially not for top/left).
- */
+/** Expand stage so you don’t run out of background on right/bottom. */
 function ensureSlack(margin = 120) {
   const svg = svgEl(); if (!svg) return;
-  const box = svg.getBBox();
+  const root = svg.querySelector("g.mmd-root") || svg;
+  const box = root.getBBox();
 
   const left = pan.x + box.x * zoom;
   const top = pan.y + box.y * zoom;
@@ -149,8 +146,6 @@ function ensureSlack(margin = 120) {
   const bottom = top + box.height * zoom;
 
   let changed = false;
-
-  // Only extend the stage to the right/bottom.
   if (right > stageW - margin) { stageW = Math.ceil(right + margin); changed = true; }
   if (bottom > stageH - margin) { stageH = Math.ceil(bottom + margin); changed = true; }
 
@@ -161,18 +156,17 @@ function ensureSlack(margin = 120) {
 function zoomAt(clientX, clientY, factor) {
   const svg = svgEl(); if (!svg) return;
   const rect = els.previewWrap.getBoundingClientRect();
-  const box = svg.getBBox();
+  const root = svg.querySelector("g.mmd-root") || svg;
+  const box = root.getBBox();
 
   const mx = clientX - rect.left;
   const my = clientY - rect.top;
 
-  // Convert screen px → world units under current transform
   const wx = (mx - pan.x) / zoom - box.x;
   const wy = (my - pan.y) / zoom - box.y;
 
   const newZoom = Math.min(Math.max(zoom * factor, 0.05), 20);
 
-  // Keep the same world point under the cursor
   pan.x = mx - (wx + box.x) * newZoom;
   pan.y = my - (wy + box.y) * newZoom;
   zoom = newZoom;
@@ -204,21 +198,19 @@ async function renderNow() {
     const id = nextId();
     const r = await window.mermaid.render(id, code);
 
-    // Inject SVG on the stage
     els.preview.innerHTML = r.svg;
 
     const svg = svgEl(); if (!svg) return;
 
-    // Important: don't let Mermaid's max-width collapse the SVG
+    // Don’t let Mermaid’s max-width collapse the SVG
     svg.style.maxWidth = "none";
     svg.style.width = "auto";
     svg.style.height = "auto";
     svg.style.display = "block";
 
-    // Grid + padding + wrapper + any post-DOM fixes
+    // Grid + padding + wrapper
     postProcess(svg);
 
-    // Start centered/visible every render unless the user has taken control
     if (!fitLock) fitToViewport(48); else applyTransform();
   } catch (e) {
     showError(e);
@@ -245,13 +237,13 @@ els.btnReset.addEventListener("click", () => {
   fitToViewport(48);
 });
 
-// Collapse/expand button
+// Collapse/expand editor
 els.btnToggleEditor?.addEventListener("click", () => {
   const collapsed = !document.body.classList.contains("editor-collapsed");
   setEditorCollapsed(collapsed);
 });
 
-// Drag to pan (pixels)
+// Drag to pan
 let dragging = false, last = null;
 els.previewWrap.addEventListener("mousedown", e => { dragging = true; last = { x: e.clientX, y: e.clientY }; fitLock = true; });
 window.addEventListener("mousemove", e => {
@@ -269,7 +261,7 @@ els.previewWrap.addEventListener("wheel", (e) => {
   fitLock = true;
 }, { passive: false });
 
-// Keyboard: render & collapse shortcut
+// Keyboard: render & collapse
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); renderNow(); }
@@ -280,11 +272,104 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-// Keep your placement on resize (don’t snap unless you never moved)
+// Keep placement on resize
 window.addEventListener("resize", () => { if (!fitLock) fitToViewport(48); else ensureSlack(); });
 
 // ───────────────────────────────────────────────────────────────────────────────
-// Export / Share
+// Export helpers (robust: proper viewBox, explicit size, background, no taint)
+
+/** Inline a safe subset of computed styles from src subtree to dst subtree (lockstep). */
+function inlineStyles(srcRoot, dstRoot) {
+  const props = [
+    "fill", "fill-opacity",
+    "stroke", "stroke-width", "stroke-opacity", "stroke-dasharray",
+    "stroke-linecap", "stroke-linejoin",
+    "opacity", "font-family", "font-size", "font-weight",
+    "paint-order", "filter", "vector-effect", "text-anchor"
+  ];
+  const srcWalker = document.createTreeWalker(srcRoot, NodeFilter.SHOW_ELEMENT);
+  const dstWalker = document.createTreeWalker(dstRoot, NodeFilter.SHOW_ELEMENT);
+
+  while (true) {
+    const sOk = srcWalker.nextNode();
+    const dOk = dstWalker.nextNode();
+    if (!sOk || !dOk) break;
+    const s = getComputedStyle(srcWalker.currentNode);
+    const el = dstWalker.currentNode;
+    for (const p of props) {
+      const v = s.getPropertyValue(p);
+      if (v) el.style.setProperty(p, v);
+    }
+  }
+}
+
+/**
+ * Build a standalone SVG:
+ *  - cropped to content bbox (of g.mmd-root) + padding
+ *  - explicit size + viewBox
+ *  - solid background (matches page)
+ *  - inlined styles + system fonts (prevents PNG taint)
+ *  - preview-only elements (grid) removed before export
+ */
+function buildStandaloneSvg(padding = 24) {
+  const src = svgEl(); if (!src) return null;
+
+  // Identify content root (exclude preview-only background)
+  const srcRoot = src.querySelector("g.mmd-root") || src;
+
+  // Clone whole SVG, then strip preview-only bits
+  const clone = src.cloneNode(true);
+  clone.style.transform = "";
+  clone.style.transformOrigin = "";
+
+  // Remove preview-only grid/background from the export copy
+  clone.querySelectorAll("rect.rw-grid,[data-rw-preview-only]").forEach(n => n.remove());
+
+  const cloneRoot = clone.querySelector("g.mmd-root") || clone;
+
+  // Compute bbox from content root ONLY, so we crop tight
+  const box = srcRoot.getBBox();
+  const x = Math.floor(box.x - padding);
+  const y = Math.floor(box.y - padding);
+  const w = Math.ceil(box.width + padding * 2);
+  const h = Math.ceil(box.height + padding * 2);
+
+  // Root attributes + namespaces
+  clone.removeAttribute("viewBox");
+  clone.removeAttribute("width");
+  clone.removeAttribute("height");
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+  clone.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+  clone.setAttribute("width", String(w));
+  clone.setAttribute("height", String(h));
+  clone.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+  // Background (page theme)
+  const bgColor = getComputedStyle(document.body).backgroundColor || "#0b1220";
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("x", String(x));
+  rect.setAttribute("y", String(y));
+  rect.setAttribute("width", String(w));
+  rect.setAttribute("height", String(h));
+  rect.setAttribute("fill", bgColor);
+  clone.insertBefore(rect, clone.firstChild);
+
+  // Inline computed styles so the SVG is self-contained
+  inlineStyles(srcRoot, cloneRoot);
+
+  // Force system fonts and crisp rendering to avoid cross-origin taint + match app
+  const sysFont = `ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+  const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+  style.textContent = `
+    * { font-family: ${sysFont} !important; shape-rendering: geometricPrecision; text-rendering: optimizeLegibility; }
+    text, .label { paint-order: stroke; stroke: rgba(0,0,0,.09); stroke-width:.6px; }
+  `;
+  clone.insertBefore(style, rect.nextSibling);
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n` + new XMLSerializer().serializeToString(clone);
+  return { xml, width: w, height: h, bgColor };
+}
 
 function download(filename, text, mime) {
   const blob = new Blob([text], { type: mime });
@@ -295,33 +380,58 @@ function download(filename, text, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 250);
 }
 
+// Export SVG (standalone, correctly sized, tightly cropped)
 els.btnExportSvg.addEventListener("click", async () => {
-  const svg = svgEl(); if (!svg) return;
-  const xml = new XMLSerializer().serializeToString(svg);
-  if (window.RW?.saveSvg) { await window.RW.saveSvg(xml); return; }
-  download("diagram.svg", xml, "image/svg+xml;charset=utf-8");
+  try {
+    const pack = buildStandaloneSvg(32); if (!pack) return;
+    if (window.RW?.saveSvg) { await window.RW.saveSvg(pack.xml); return; }
+    download("diagram.svg", pack.xml, "image/svg+xml;charset=utf-8");
+  } catch (err) { showError(err); }
 });
 
+// Export PNG (device-pixel aware high-DPI)
 els.btnExportPng.addEventListener("click", async () => {
-  const svg = svgEl(); if (!svg) return;
-  const xml = new XMLSerializer().serializeToString(svg);
-  const src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
-  const img = new Image();
-  img.onload = async () => {
-    const scale = 2;
-    const c = document.createElement("canvas");
-    c.width = img.width * scale; c.height = img.height * scale;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = getComputedStyle(document.body).backgroundColor || "#0b1220";
-    ctx.fillRect(0, 0, c.width, c.height);
-    ctx.drawImage(img, 0, 0, c.width, c.height);
-    const dataUrl = c.toDataURL("image/png");
-    if (window.RW?.savePng) { await window.RW.savePng(dataUrl); return; }
-    const a = document.createElement("a"); a.href = dataUrl; a.download = "diagram.png"; a.click();
-  };
-  img.src = src;
+  try {
+    const pack = buildStandaloneSvg(32); if (!pack) return;
+
+    const blob = new Blob([pack.xml], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    img.onload = async () => {
+      // Scale by device pixel ratio + a quality multiplier for razor-sharp output
+      const dpr = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
+      const quality = 2;                 // bump to 3–4 for poster-size
+      const scale = dpr * quality;
+
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.floor(pack.width * scale));
+      c.height = Math.max(1, Math.floor(pack.height * scale));
+
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      // Background (same as SVG)
+      ctx.fillStyle = pack.bgColor;
+      ctx.fillRect(0, 0, c.width, c.height);
+
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+
+      const dataUrl = c.toDataURL("image/png");
+      if (window.RW?.savePng) { await window.RW.savePng(dataUrl); return; }
+      const a = document.createElement("a");
+      a.href = dataUrl; a.download = "diagram.png"; a.click();
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); showError(new Error("PNG export failed to load SVG image.")); };
+
+    img.src = url;
+  } catch (err) { showError(err); }
 });
 
+// Share URL
 els.btnShare.addEventListener("click", () => {
   const packed = LZString.compressToEncodedURIComponent(getCode());
   const isDark = document.documentElement.getAttribute("data-theme") === "dark" ? "1" : "0";
@@ -436,11 +546,10 @@ async function boot() {
   wireDocs();
   initTheme();
 
-  // Restore collapsed state
   const startCollapsed = (localStorage.getItem(LS_KEY_COLLAPSE) === "1");
   if (startCollapsed) document.body.classList.add("editor-collapsed");
   updateEditorToggleLabel();
 
-  renderNow(); // centers in viewport on first paint
+  renderNow();
 }
 boot();
