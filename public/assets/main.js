@@ -389,45 +389,48 @@ els.btnExportSvg.addEventListener("click", async () => {
   } catch (err) { showError(err); }
 });
 
-// Export PNG (device-pixel aware high-DPI)
+// Export PNG (device-pixel-aware, high-DPI, no taint via data: URL)
 els.btnExportPng.addEventListener("click", async () => {
   try {
     const pack = buildStandaloneSvg(32); if (!pack) return;
 
-    const blob = new Blob([pack.xml], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
+    // Use a data: URL to keep it same-origin under file:// and avoid canvas taint
+    const svgDataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(pack.xml);
 
+    const img = new Image();
+    // NOTE: do NOT set crossOrigin for data: URLs; it can trigger taint paths.
+    // img.crossOrigin = "anonymous";
+    img.decoding = "sync"; // render immediately if possible
     img.onload = async () => {
-      // Scale by device pixel ratio + a quality multiplier for razor-sharp output
       const dpr = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
-      const quality = 2;                 // bump to 3–4 for poster-size
+      const quality = 2; // bump to 3–4 for posters
       const scale = dpr * quality;
 
       const c = document.createElement("canvas");
-      c.width = Math.max(1, Math.floor(pack.width * scale));
+      c.width  = Math.max(1, Math.floor(pack.width  * scale));
       c.height = Math.max(1, Math.floor(pack.height * scale));
 
       const ctx = c.getContext("2d");
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
-      // Background (same as SVG)
+      // Fill background (identical to app)
       ctx.fillStyle = pack.bgColor;
       ctx.fillRect(0, 0, c.width, c.height);
 
+      // Draw the SVG
       ctx.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
 
+      // Export PNG
       const dataUrl = c.toDataURL("image/png");
       if (window.RW?.savePng) { await window.RW.savePng(dataUrl); return; }
       const a = document.createElement("a");
       a.href = dataUrl; a.download = "diagram.png"; a.click();
     };
-    img.onerror = () => { URL.revokeObjectURL(url); showError(new Error("PNG export failed to load SVG image.")); };
-
-    img.src = url;
+    img.onerror = () => {
+      showError(new Error("PNG export failed to load SVG image (data URL)."));
+    };
+    img.src = svgDataUrl;
   } catch (err) { showError(err); }
 });
 
